@@ -1,3 +1,9 @@
+-- F3L Training Script
+-- Copyright (c) 2026 Nikola Stojkovic
+-- Released under the MIT License
+-- This script is intended for F3L (RES) training use.
+-- No warranty. Use at your own risk.
+
 -- F3L Training Script (EdgeTX / OpenTX Telemetry Script)
 -- Stable training version for F3L
 -- Flight: remaining time (freezes at landing), Flight time: duration

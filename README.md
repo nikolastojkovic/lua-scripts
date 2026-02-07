@@ -133,7 +133,16 @@ Spoken only at exact moments:
 ✅ **Stable training version**
 
 Tested and validated for **EdgeTX / OpenTX** radios in F3L training scenarios.
+If you find this script useful and want to support development,
+you can buy me a coffee or beer 🙂
+
 
 ---
+
+## License
+
+This project is licensed under the MIT License.  
+See the [LICENSE](LICENSE) file for details.
+
 
 Happy thermal hunting ☀️🛩️
