@@ -138,6 +138,9 @@ Tested and validated for **EdgeTX / OpenTX** radios in F3L training scenarios.
 If you find this script useful and want to support development,
 you can buy me a coffee or beer 🙂
 
+![A screenshot of the script](images/F3L-training-script-gui.png)
+
+
 
 ---
 
