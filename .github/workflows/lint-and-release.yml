@@ -1,0 +1,131 @@
+name: Lint and Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint Lua Code
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install luacheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luacheck
+
+      - name: Run luacheck
+        run: |
+          luacheck f3l.lua --config .luacheckrc
+
+  commitlint:
+    runs-on: ubuntu-latest
+    name: Validate Commit Messages
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: wagoid/commitlint-github-action@v5
+        with:
+          configFile: .commitlintrc.json
+
+  release:
+    needs: lint
+    runs-on: ubuntu-latest
+    name: Create Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get last version tag
+        id: last_tag
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "tag=$LAST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Calculate next version
+        id: next_version
+        run: |
+          LAST_TAG="${{ steps.last_tag.outputs.tag }}"
+          VERSION=${LAST_TAG#v}
+          
+          # Parse version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          # Check commits since last tag for conventional commit types
+          if git rev-list "$LAST_TAG..HEAD" 2>/dev/null | xargs git log -1 --grep="^BREAKING CHANGE" -q; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif git log "$LAST_TAG..HEAD" --oneline 2>/dev/null | grep -q "^[a-f0-9]* feat"; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          
+          NEXT_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Next version: $NEXT_VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LAST_TAG="${{ steps.last_tag.outputs.tag }}"
+          NEXT_VERSION="${{ steps.next_version.outputs.version }}"
+          
+          echo "### Changes in $NEXT_VERSION" > /tmp/changelog.txt
+          echo "" >> /tmp/changelog.txt
+          
+          # Features
+          if git log "$LAST_TAG..HEAD" --oneline 2>/dev/null | grep -q "feat:"; then
+            echo "#### ✨ Features" >> /tmp/changelog.txt
+            git log "$LAST_TAG..HEAD" --pretty=format:"- %s" --grep="^feat:" 2>/dev/null >> /tmp/changelog.txt
+            echo "" >> /tmp/changelog.txt
+          fi
+          
+          # Bug Fixes
+          if git log "$LAST_TAG..HEAD" --oneline 2>/dev/null | grep -q "fix:"; then
+            echo "#### 🐛 Bug Fixes" >> /tmp/changelog.txt
+            git log "$LAST_TAG..HEAD" --pretty=format:"- %s" --grep="^fix:" 2>/dev/null >> /tmp/changelog.txt
+            echo "" >> /tmp/changelog.txt
+          fi
+          
+          # Other changes
+          echo "#### 📝 Other Changes" >> /tmp/changelog.txt
+          git log "$LAST_TAG..HEAD" --pretty=format:"- %s" 2>/dev/null | grep -v "^- feat:" | grep -v "^- fix:" >> /tmp/changelog.txt
+          
+          CHANGELOG=$(cat /tmp/changelog.txt)
+          echo "body=$CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.next_version.outputs.version }}
+          release_name: Release ${{ steps.next_version.outputs.version }}
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Lua Script as Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./f3l.lua
+          asset_name: f3l.lua
+          asset_content_type: text/plain
