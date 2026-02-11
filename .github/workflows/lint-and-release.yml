@@ -121,22 +121,11 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.next_version.outputs.version }}
-          release_name: Release ${{ steps.next_version.outputs.version }}
+          name: Release ${{ steps.next_version.outputs.version }}
           body_path: /tmp/changelog.txt
           draft: false
           prerelease: false
-
-      - name: Upload Lua Script as Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./f3l.lua
-          asset_name: f3l.lua
-          asset_content_type: text/plain
+          files: ./f3l.lua
